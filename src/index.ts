@@ -1517,7 +1517,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "The document ID" },
+            documentId: { type: "string" },
             text: { type: "string", description: "Text to insert" },
             index: { type: "number", description: "Position to insert at (1-based)" }
           },
@@ -1530,7 +1530,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "The document ID" },
+            documentId: { type: "string" },
             startIndex: { type: "number", description: "Start index (1-based, inclusive)" },
             endIndex: { type: "number", description: "End index (exclusive)" }
           },
@@ -1543,7 +1543,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "The document ID" },
+            documentId: { type: "string" },
             format: { type: "string", enum: ["text", "json", "markdown"], description: "Output format (default: text)" },
             maxLength: { type: "number", description: "Maximum characters to return" }
           },
@@ -1556,7 +1556,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "The document ID" },
+            documentId: { type: "string" },
             includeContent: { type: "boolean", description: "Include content summary (character count) for each tab" }
           },
           required: ["documentId"]
@@ -1568,17 +1568,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "The document ID" },
+            documentId: { type: "string" },
             startIndex: { type: "number", description: "Start index (1-based) - use with endIndex" },
             endIndex: { type: "number", description: "End index (exclusive) - use with startIndex" },
             textToFind: { type: "string", description: "Text to find and format (alternative to indices)" },
             matchInstance: { type: "number", description: "Which instance of textToFind (default: 1)" },
-            bold: { type: "boolean", description: "Make text bold" },
-            italic: { type: "boolean", description: "Make text italic" },
-            underline: { type: "boolean", description: "Underline text" },
-            strikethrough: { type: "boolean", description: "Strikethrough text" },
-            fontSize: { type: "number", description: "Font size in points" },
-            fontFamily: { type: "string", description: "Font family name" },
+            bold: { type: "boolean" },
+            italic: { type: "boolean" },
+            underline: { type: "boolean" },
+            strikethrough: { type: "boolean" },
+            fontSize: { type: "number" },
+            fontFamily: { type: "string" },
             foregroundColor: { type: "string", description: "Hex color (e.g., #FF0000)" },
             backgroundColor: { type: "string", description: "Hex background color" },
             linkUrl: { type: "string", description: "URL for hyperlink" }
@@ -1592,18 +1592,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "The document ID" },
+            documentId: { type: "string" },
             startIndex: { type: "number", description: "Start index (1-based) - use with endIndex" },
             endIndex: { type: "number", description: "End index (exclusive) - use with startIndex" },
             textToFind: { type: "string", description: "Text within the target paragraph" },
             matchInstance: { type: "number", description: "Which instance of textToFind (default: 1)" },
             indexWithinParagraph: { type: "number", description: "Any index within the target paragraph" },
-            alignment: { type: "string", enum: ["START", "END", "CENTER", "JUSTIFIED"], description: "Text alignment" },
+            alignment: { type: "string", enum: ["START", "END", "CENTER", "JUSTIFIED"] },
             indentStart: { type: "number", description: "Left indent in points" },
             indentEnd: { type: "number", description: "Right indent in points" },
             spaceAbove: { type: "number", description: "Space above in points" },
             spaceBelow: { type: "number", description: "Space below in points" },
-            namedStyleType: { type: "string", enum: ["NORMAL_TEXT", "TITLE", "SUBTITLE", "HEADING_1", "HEADING_2", "HEADING_3", "HEADING_4", "HEADING_5", "HEADING_6"], description: "Named paragraph style" },
+            namedStyleType: { type: "string", enum: ["NORMAL_TEXT", "TITLE", "SUBTITLE", "HEADING_1", "HEADING_2", "HEADING_3", "HEADING_4", "HEADING_5", "HEADING_6"] },
             keepWithNext: { type: "boolean", description: "Keep with next paragraph" }
           },
           required: ["documentId"]
@@ -1618,7 +1618,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "The document ID" }
+            documentId: { type: "string" }
           },
           required: ["documentId"]
         }
@@ -1629,7 +1629,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "The document ID" },
+            documentId: { type: "string" },
             commentId: { type: "string", description: "The comment ID" }
           },
           required: ["documentId", "commentId"]
@@ -1641,7 +1641,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "The document ID" },
+            documentId: { type: "string" },
             startIndex: { type: "number", description: "Start index (1-based)" },
             endIndex: { type: "number", description: "End index (exclusive)" },
             commentText: { type: "string", description: "The comment content" }
@@ -1655,7 +1655,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "The document ID" },
+            documentId: { type: "string" },
             commentId: { type: "string", description: "The comment ID to reply to" },
             replyText: { type: "string", description: "The reply content" }
           },
@@ -1668,7 +1668,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "The document ID" },
+            documentId: { type: "string" },
             commentId: { type: "string", description: "The comment ID to delete" }
           },
           required: ["documentId", "commentId"]
@@ -1807,7 +1807,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "The document ID" },
+            documentId: { type: "string" },
             rows: { type: "number", description: "Number of rows for the new table" },
             columns: { type: "number", description: "Number of columns for the new table" },
             index: { type: "number", description: "The index (1-based) where the table should be inserted" }
@@ -1821,15 +1821,15 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "The document ID" },
+            documentId: { type: "string" },
             tableStartIndex: { type: "number", description: "The starting index of the TABLE element" },
             rowIndex: { type: "number", description: "Row index (0-based)" },
             columnIndex: { type: "number", description: "Column index (0-based)" },
             textContent: { type: "string", description: "New text content for the cell (replaces existing)" },
-            bold: { type: "boolean", description: "Make text bold" },
-            italic: { type: "boolean", description: "Make text italic" },
-            fontSize: { type: "number", description: "Font size in points" },
-            alignment: { type: "string", enum: ["START", "CENTER", "END", "JUSTIFIED"], description: "Text alignment" }
+            bold: { type: "boolean" },
+            italic: { type: "boolean" },
+            fontSize: { type: "number" },
+            alignment: { type: "string", enum: ["START", "CENTER", "END", "JUSTIFIED"] }
           },
           required: ["documentId", "tableStartIndex", "rowIndex", "columnIndex"]
         }
@@ -1840,7 +1840,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "The document ID" },
+            documentId: { type: "string" },
             imageUrl: { type: "string", description: "Publicly accessible URL to the image" },
             index: { type: "number", description: "The index (1-based) where the image should be inserted" },
             width: { type: "number", description: "Width of the image in points" },
@@ -1855,7 +1855,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "The document ID" },
+            documentId: { type: "string" },
             localImagePath: { type: "string", description: "Absolute path to the local image file" },
             index: { type: "number", description: "The index (1-based) where the image should be inserted" },
             width: { type: "number", description: "Width of the image in points" },
@@ -1929,7 +1929,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            spreadsheetId: { type: "string", description: "Spreadsheet ID" },
+            spreadsheetId: { type: "string" },
             range: { type: "string", description: "Range to get (e.g., 'Sheet1!A1:C10')" }
           },
           required: ["spreadsheetId", "range"]
@@ -1941,7 +1941,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            spreadsheetId: { type: "string", description: "Spreadsheet ID" },
+            spreadsheetId: { type: "string" },
             range: { type: "string", description: "Range to format (e.g., 'A1:C10')" },
             backgroundColor: {
               type: "object",
@@ -1955,19 +1955,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             horizontalAlignment: {
               type: "string",
-              description: "Horizontal alignment",
               enum: ["LEFT", "CENTER", "RIGHT"],
               optional: true
             },
             verticalAlignment: {
               type: "string",
-              description: "Vertical alignment",
               enum: ["TOP", "MIDDLE", "BOTTOM"],
               optional: true
             },
             wrapStrategy: {
               type: "string",
-              description: "Text wrapping",
               enum: ["OVERFLOW_CELL", "CLIP", "WRAP"],
               optional: true
             }
@@ -1981,14 +1978,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            spreadsheetId: { type: "string", description: "Spreadsheet ID" },
+            spreadsheetId: { type: "string" },
             range: { type: "string", description: "Range to format (e.g., 'A1:C10')" },
-            bold: { type: "boolean", description: "Make text bold", optional: true },
-            italic: { type: "boolean", description: "Make text italic", optional: true },
-            strikethrough: { type: "boolean", description: "Strikethrough text", optional: true },
-            underline: { type: "boolean", description: "Underline text", optional: true },
-            fontSize: { type: "number", description: "Font size in points", optional: true },
-            fontFamily: { type: "string", description: "Font family name", optional: true },
+            bold: { type: "boolean", optional: true },
+            italic: { type: "boolean", optional: true },
+            strikethrough: { type: "boolean", optional: true },
+            underline: { type: "boolean", optional: true },
+            fontSize: { type: "number", optional: true },
+            fontFamily: { type: "string", optional: true },
             foregroundColor: {
               type: "object",
               description: "Text color (RGB values 0-1)",
@@ -2009,7 +2006,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            spreadsheetId: { type: "string", description: "Spreadsheet ID" },
+            spreadsheetId: { type: "string" },
             range: { type: "string", description: "Range to format (e.g., 'A1:C10')" },
             pattern: {
               type: "string",
@@ -2017,7 +2014,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             type: {
               type: "string",
-              description: "Format type",
               enum: ["NUMBER", "CURRENCY", "PERCENT", "DATE", "TIME", "DATE_TIME", "SCIENTIFIC"],
               optional: true
             }
@@ -2031,11 +2027,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            spreadsheetId: { type: "string", description: "Spreadsheet ID" },
+            spreadsheetId: { type: "string" },
             range: { type: "string", description: "Range to format (e.g., 'A1:C10')" },
             style: {
               type: "string",
-              description: "Border style",
               enum: ["SOLID", "DASHED", "DOTTED", "DOUBLE"]
             },
             width: { type: "number", description: "Border width (1-3)", optional: true },
@@ -2065,11 +2060,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            spreadsheetId: { type: "string", description: "Spreadsheet ID" },
+            spreadsheetId: { type: "string" },
             range: { type: "string", description: "Range to merge (e.g., 'A1:C3')" },
             mergeType: {
               type: "string",
-              description: "Merge type",
               enum: ["MERGE_ALL", "MERGE_COLUMNS", "MERGE_ROWS"]
             }
           },
@@ -2082,7 +2076,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            spreadsheetId: { type: "string", description: "Spreadsheet ID" },
+            spreadsheetId: { type: "string" },
             range: { type: "string", description: "Range to apply formatting (e.g., 'A1:C10')" },
             condition: {
               type: "object",
@@ -2090,7 +2084,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               properties: {
                 type: {
                   type: "string",
-                  description: "Condition type",
                   enum: ["NUMBER_GREATER", "NUMBER_LESS", "TEXT_CONTAINS", "TEXT_STARTS_WITH", "TEXT_ENDS_WITH", "CUSTOM_FORMULA"]
                 },
                 value: { type: "string", description: "Value to compare or formula" }
@@ -2201,14 +2194,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "Document ID" },
+            documentId: { type: "string" },
             startIndex: { type: "number", description: "Start index (1-based)" },
             endIndex: { type: "number", description: "End index (1-based)" },
-            bold: { type: "boolean", description: "Make text bold", optional: true },
-            italic: { type: "boolean", description: "Make text italic", optional: true },
-            underline: { type: "boolean", description: "Underline text", optional: true },
-            strikethrough: { type: "boolean", description: "Strikethrough text", optional: true },
-            fontSize: { type: "number", description: "Font size in points", optional: true },
+            bold: { type: "boolean", optional: true },
+            italic: { type: "boolean", optional: true },
+            underline: { type: "boolean", optional: true },
+            strikethrough: { type: "boolean", optional: true },
+            fontSize: { type: "number", optional: true },
             foregroundColor: {
               type: "object",
               description: "Text color (RGB values 0-1)",
@@ -2229,18 +2222,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "Document ID" },
+            documentId: { type: "string" },
             startIndex: { type: "number", description: "Start index (1-based)" },
             endIndex: { type: "number", description: "End index (1-based)" },
             namedStyleType: {
               type: "string",
-              description: "Paragraph style",
               enum: ["NORMAL_TEXT", "TITLE", "SUBTITLE", "HEADING_1", "HEADING_2", "HEADING_3", "HEADING_4", "HEADING_5", "HEADING_6"],
               optional: true
             },
             alignment: {
               type: "string",
-              description: "Text alignment",
               enum: ["START", "CENTER", "END", "JUSTIFIED"],
               optional: true
             },
@@ -2257,7 +2248,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            documentId: { type: "string", description: "Document ID" }
+            documentId: { type: "string" }
           },
           required: ["documentId"]
         }

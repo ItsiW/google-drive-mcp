@@ -4553,7 +4553,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (args.uploadToSameFolder !== false) {
           const fileInfo = await drive.files.get({
             fileId: args.documentId,
-            fields: 'parents'
+            fields: 'parents',
+            supportsAllDrives: true
           });
           parentFolderId = fileInfo.data.parents?.[0];
         }
@@ -4625,6 +4626,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const response = await drive.files.get({
           fileId: args.documentId,
           fields: 'id,name,description,mimeType,size,createdTime,modifiedTime,webViewLink,owners(displayName,emailAddress),lastModifyingUser(displayName,emailAddress),shared,parents,version',
+          supportsAllDrives: true
         });
 
         const file = response.data;

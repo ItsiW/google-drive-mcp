@@ -4350,8 +4350,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           requestBody: {
             requests: [{
               updateDocumentTabProperties: {
-                tabId: args.tabId,
-                tabProperties: { title: args.newTitle },
+                tabProperties: { tabId: args.tabId, title: args.newTitle },
                 fields: 'title'
               }
             }] as any

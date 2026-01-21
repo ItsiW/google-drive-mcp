@@ -844,23 +844,6 @@ const CreateGoogleDocSchema = z.object({
   parentFolderId: z.string().optional()
 });
 
-// Schema for creating a formatted Google Doc in one API call
-const CreateFormattedDocSchema = z.object({
-  name: z.string().min(1, "Document name is required"),
-  parentFolderId: z.string().optional(),
-  sections: z.array(z.object({
-    text: z.string(),
-    style: z.enum(["TITLE", "HEADING_1", "HEADING_2", "HEADING_3", "NORMAL_TEXT"]).default("NORMAL_TEXT"),
-    formatting: z.array(z.object({
-      text: z.string(),
-      bold: z.boolean().optional(),
-      italic: z.boolean().optional(),
-      underline: z.boolean().optional(),
-      color: z.string().optional() // hex color like "#FF0000"
-    })).optional()
-  }))
-});
-
 const UpdateGoogleDocSchema = z.object({
   documentId: z.string().min(1, "Document ID is required"),
   content: z.string()
@@ -1057,18 +1040,7 @@ const ListDocumentTabsSchema = z.object({
 const AddDocumentTabSchema = z.object({
   documentId: z.string().min(1, "Document ID is required"),
   title: z.string().min(1, "Tab title is required"),
-  index: z.number().int().min(0).optional(), // Position in tab list (0-indexed)
-  sections: z.array(z.object({
-    text: z.string(),
-    style: z.enum(["TITLE", "HEADING_1", "HEADING_2", "HEADING_3", "NORMAL_TEXT"]).default("NORMAL_TEXT"),
-    formatting: z.array(z.object({
-      text: z.string(),
-      bold: z.boolean().optional(),
-      italic: z.boolean().optional(),
-      underline: z.boolean().optional(),
-      color: z.string().optional() // hex color like "#FF0000"
-    })).optional()
-  })).optional() // Optional: add formatted content to the new tab
+  index: z.number().int().min(0).optional() // Position in tab list (0-indexed)
 });
 
 const RenameDocumentTabSchema = z.object({
@@ -1559,49 +1531,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: "createFormattedDoc",
-        description: "Create a Google Doc with formatting (headings, bold, colors) in one API call. More efficient than creating then formatting.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            name: { type: "string", description: "Document name" },
-            parentFolderId: { type: "string", description: "Parent folder ID", optional: true },
-            sections: {
-              type: "array",
-              description: "Array of content sections with styling",
-              items: {
-                type: "object",
-                properties: {
-                  text: { type: "string", description: "Section text content" },
-                  style: {
-                    type: "string",
-                    enum: ["TITLE", "HEADING_1", "HEADING_2", "HEADING_3", "NORMAL_TEXT"],
-                    description: "Paragraph style (default: NORMAL_TEXT)"
-                  },
-                  formatting: {
-                    type: "array",
-                    description: "Optional text formatting within this section",
-                    items: {
-                      type: "object",
-                      properties: {
-                        text: { type: "string", description: "Text to format (must exist in section)" },
-                        bold: { type: "boolean" },
-                        italic: { type: "boolean" },
-                        underline: { type: "boolean" },
-                        color: { type: "string", description: "Hex color like #FF0000" }
-                      },
-                      required: ["text"]
-                    }
-                  }
-                },
-                required: ["text"]
-              }
-            }
-          },
-          required: ["name", "sections"]
-        }
-      },
-      {
         name: "updateGoogleDoc",
         description: "Update an existing Google Doc",
         inputSchema: {
@@ -1667,40 +1596,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "addDocumentTab",
-        description: "Add a new tab to a Google Doc with optional formatted content (headings, bold, colors) in one API call.",
+        description: "Add a new tab to a Google Doc. Use insertFormattedContent to add content to the tab.",
         inputSchema: {
           type: "object",
           properties: {
             documentId: { type: "string", description: "The ID of the Google Document" },
             title: { type: "string", description: "Title for the new tab" },
-            index: { type: "number", description: "Position in tab list (0-indexed, optional)" },
-            sections: {
-              type: "array",
-              description: "Optional array of content sections with styling (same format as createFormattedDoc)",
-              items: {
-                type: "object",
-                properties: {
-                  text: { type: "string", description: "Section text content" },
-                  style: { type: "string", enum: ["TITLE", "HEADING_1", "HEADING_2", "HEADING_3", "NORMAL_TEXT"], description: "Paragraph style (default: NORMAL_TEXT)" },
-                  formatting: {
-                    type: "array",
-                    description: "Optional text formatting within this section",
-                    items: {
-                      type: "object",
-                      properties: {
-                        text: { type: "string", description: "Text to format (must exist in section)" },
-                        bold: { type: "boolean" },
-                        italic: { type: "boolean" },
-                        underline: { type: "boolean" },
-                        color: { type: "string", description: "Hex color like #FF0000" }
-                      },
-                      required: ["text"]
-                    }
-                  }
-                },
-                required: ["text"]
-              }
-            }
+            index: { type: "number", description: "Position in tab list (0-indexed, optional)" }
           },
           required: ["documentId", "title"]
         }
@@ -2859,147 +2761,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         return {
           content: [{ type: "text", text: `Created Google Doc: ${doc.name}\nID: ${doc.id}\nLink: ${doc.webViewLink}` }],
-          isError: false
-        };
-      }
-
-      case "createFormattedDoc": {
-        const validation = CreateFormattedDocSchema.safeParse(request.params.arguments);
-        if (!validation.success) {
-          return errorResponse(validation.error.errors[0].message);
-        }
-        const args = validation.data;
-
-        const parentFolderId = await resolveFolderId(args.parentFolderId);
-
-        // Check if document already exists
-        const existingFileId = await checkFileExists(args.name, parentFolderId);
-        if (existingFileId) {
-          return errorResponse(
-            `A document named "${args.name}" already exists in this location. ` +
-            `Use a different name or delete the existing document.`
-          );
-        }
-
-        // Create empty doc
-        ensureDriveService();
-        const docResponse = await drive.files.create({
-          requestBody: {
-            name: args.name,
-            mimeType: 'application/vnd.google-apps.document',
-            parents: [parentFolderId]
-          },
-          fields: 'id, name, webViewLink',
-          supportsAllDrives: true
-        });
-        const doc = docResponse.data;
-
-        // Build all content and track section positions
-        const sectionPositions: Array<{
-          startIndex: number;
-          endIndex: number;
-          style: string;
-          formatting?: Array<{ text: string; bold?: boolean; italic?: boolean; underline?: boolean; color?: string }>;
-          fullText: string;
-        }> = [];
-
-        let fullText = '';
-        let currentIndex = 1; // Google Docs indices start at 1
-
-        for (const section of args.sections) {
-          const sectionText = section.text + '\n'; // Each section ends with newline
-          const startIndex = currentIndex;
-          const endIndex = currentIndex + sectionText.length;
-
-          sectionPositions.push({
-            startIndex,
-            endIndex,
-            style: section.style || 'NORMAL_TEXT',
-            formatting: section.formatting,
-            fullText: section.text
-          });
-
-          fullText += sectionText;
-          currentIndex = endIndex;
-        }
-
-        // Build batchUpdate requests
-        const requests: any[] = [];
-
-        // 1. Insert all text at once
-        requests.push({
-          insertText: { location: { index: 1 }, text: fullText }
-        });
-
-        // 2. Apply paragraph styles to each section
-        for (const section of sectionPositions) {
-          requests.push({
-            updateParagraphStyle: {
-              range: { startIndex: section.startIndex, endIndex: section.endIndex },
-              paragraphStyle: { namedStyleType: section.style },
-              fields: 'namedStyleType'
-            }
-          });
-        }
-
-        // 3. Apply text formatting within sections
-        for (const section of sectionPositions) {
-          if (section.formatting) {
-            for (const fmt of section.formatting) {
-              // Find the text within this section
-              const textIndex = section.fullText.indexOf(fmt.text);
-              if (textIndex === -1) continue; // Text not found in section
-
-              const fmtStartIndex = section.startIndex + textIndex;
-              const fmtEndIndex = fmtStartIndex + fmt.text.length;
-
-              const textStyle: any = {};
-              const fields: string[] = [];
-
-              if (fmt.bold !== undefined) {
-                textStyle.bold = fmt.bold;
-                fields.push('bold');
-              }
-              if (fmt.italic !== undefined) {
-                textStyle.italic = fmt.italic;
-                fields.push('italic');
-              }
-              if (fmt.underline !== undefined) {
-                textStyle.underline = fmt.underline;
-                fields.push('underline');
-              }
-              if (fmt.color) {
-                // Parse hex color
-                const hex = fmt.color.replace('#', '');
-                const r = parseInt(hex.substring(0, 2), 16) / 255;
-                const g = parseInt(hex.substring(2, 4), 16) / 255;
-                const b = parseInt(hex.substring(4, 6), 16) / 255;
-                textStyle.foregroundColor = { color: { rgbColor: { red: r, green: g, blue: b } } };
-                fields.push('foregroundColor');
-              }
-
-              if (fields.length > 0) {
-                requests.push({
-                  updateTextStyle: {
-                    range: { startIndex: fmtStartIndex, endIndex: fmtEndIndex },
-                    textStyle,
-                    fields: fields.join(',')
-                  }
-                });
-              }
-            }
-          }
-        }
-
-        // Execute batchUpdate
-        const docs = google.docs({ version: 'v1', auth: authClient });
-        await docs.documents.batchUpdate({
-          documentId: doc.id!,
-          requestBody: { requests }
-        });
-
-        return {
-          content: [{ type: "text", text: `Created formatted Google Doc: ${doc.name}\nID: ${doc.id}\nLink: ${doc.webViewLink}\nSections: ${sectionPositions.length}` }],
           isError: false
         };
       }
@@ -4221,113 +3982,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         if (!newTabId) {
           return errorResponse("Failed to get new tab ID from response");
-        }
-
-        // If sections are provided, add formatted content to the new tab
-        if (args.sections && args.sections.length > 0) {
-          // Build full text content
-          let fullText = '';
-          const sectionPositions: Array<{
-            startIndex: number;
-            endIndex: number;
-            style: string;
-            formatting?: Array<{ text: string; bold?: boolean; italic?: boolean; underline?: boolean; color?: string }>;
-            fullText: string;
-          }> = [];
-
-          let currentIndex = 1; // Google Docs indices start at 1
-          for (const section of args.sections) {
-            const sectionText = section.text + '\n';
-            sectionPositions.push({
-              startIndex: currentIndex,
-              endIndex: currentIndex + sectionText.length,
-              style: section.style || 'NORMAL_TEXT',
-              formatting: section.formatting,
-              fullText: section.text
-            });
-            fullText += sectionText;
-            currentIndex += sectionText.length;
-          }
-
-          // Build batchUpdate requests for the new tab
-          const requests: any[] = [];
-
-          // 1. Insert all text at once (targeting the new tab)
-          requests.push({
-            insertText: {
-              location: { index: 1, tabId: newTabId },
-              text: fullText
-            }
-          });
-
-          // 2. Apply paragraph styles to each section
-          for (const section of sectionPositions) {
-            requests.push({
-              updateParagraphStyle: {
-                range: { startIndex: section.startIndex, endIndex: section.endIndex, tabId: newTabId },
-                paragraphStyle: { namedStyleType: section.style },
-                fields: 'namedStyleType'
-              }
-            });
-          }
-
-          // 3. Apply text formatting within sections
-          for (const section of sectionPositions) {
-            if (section.formatting) {
-              for (const fmt of section.formatting) {
-                const textIndex = section.fullText.indexOf(fmt.text);
-                if (textIndex === -1) continue;
-
-                const fmtStartIndex = section.startIndex + textIndex;
-                const fmtEndIndex = fmtStartIndex + fmt.text.length;
-
-                const textStyle: any = {};
-                const fields: string[] = [];
-
-                if (fmt.bold !== undefined) {
-                  textStyle.bold = fmt.bold;
-                  fields.push('bold');
-                }
-                if (fmt.italic !== undefined) {
-                  textStyle.italic = fmt.italic;
-                  fields.push('italic');
-                }
-                if (fmt.underline !== undefined) {
-                  textStyle.underline = fmt.underline;
-                  fields.push('underline');
-                }
-                if (fmt.color) {
-                  const hex = fmt.color.replace('#', '');
-                  const r = parseInt(hex.substring(0, 2), 16) / 255;
-                  const g = parseInt(hex.substring(2, 4), 16) / 255;
-                  const b = parseInt(hex.substring(4, 6), 16) / 255;
-                  textStyle.foregroundColor = { color: { rgbColor: { red: r, green: g, blue: b } } };
-                  fields.push('foregroundColor');
-                }
-
-                if (fields.length > 0) {
-                  requests.push({
-                    updateTextStyle: {
-                      range: { startIndex: fmtStartIndex, endIndex: fmtEndIndex, tabId: newTabId },
-                      textStyle,
-                      fields: fields.join(',')
-                    }
-                  });
-                }
-              }
-            }
-          }
-
-          // Execute content batchUpdate
-          await docs.documents.batchUpdate({
-            documentId: args.documentId,
-            requestBody: { requests }
-          });
-
-          return {
-            content: [{ type: "text", text: `Added tab "${args.title}" (ID: ${newTabId}) with ${sectionPositions.length} formatted sections` }],
-            isError: false
-          };
         }
 
         return {

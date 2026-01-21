@@ -1071,6 +1071,29 @@ const AddDocumentTabSchema = z.object({
   })).optional() // Optional: add formatted content to the new tab
 });
 
+const RenameDocumentTabSchema = z.object({
+  documentId: z.string().min(1, "Document ID is required"),
+  tabId: z.string().min(1, "Tab ID is required"),
+  newTitle: z.string().min(1, "New title is required")
+});
+
+const InsertFormattedContentSchema = z.object({
+  documentId: z.string().min(1, "Document ID is required"),
+  tabId: z.string().optional(), // Defaults to first tab
+  index: z.number().int().min(1).optional().default(1), // Where to insert (1 = beginning)
+  sections: z.array(z.object({
+    text: z.string(),
+    style: z.enum(["TITLE", "HEADING_1", "HEADING_2", "HEADING_3", "NORMAL_TEXT"]).default("NORMAL_TEXT"),
+    formatting: z.array(z.object({
+      text: z.string(),
+      bold: z.boolean().optional(),
+      italic: z.boolean().optional(),
+      underline: z.boolean().optional(),
+      color: z.string().optional() // hex color like "#FF0000"
+    })).optional()
+  }))
+});
+
 // Enhanced text/paragraph style schemas with text-find targeting
 const ApplyTextStyleSchema = z.object({
   documentId: z.string().min(1, "Document ID is required"),
@@ -1680,6 +1703,59 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             }
           },
           required: ["documentId", "title"]
+        }
+      },
+      {
+        name: "renameDocumentTab",
+        description: "Rename a tab in a Google Doc",
+        inputSchema: {
+          type: "object",
+          properties: {
+            documentId: { type: "string", description: "The ID of the Google Document" },
+            tabId: { type: "string", description: "The ID of the tab to rename (use listDocumentTabs to find IDs)" },
+            newTitle: { type: "string", description: "The new title for the tab" }
+          },
+          required: ["documentId", "tabId", "newTitle"]
+        }
+      },
+      {
+        name: "insertFormattedContent",
+        description: "Insert formatted content (headings, bold, colors) at any position in a Google Doc, optionally targeting a specific tab.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            documentId: { type: "string", description: "The ID of the Google Document" },
+            tabId: { type: "string", description: "Tab ID to insert into (defaults to first tab)" },
+            index: { type: "number", description: "Position to insert at (1 = beginning, defaults to 1)" },
+            sections: {
+              type: "array",
+              description: "Array of content sections with styling",
+              items: {
+                type: "object",
+                properties: {
+                  text: { type: "string", description: "Section text content" },
+                  style: { type: "string", enum: ["TITLE", "HEADING_1", "HEADING_2", "HEADING_3", "NORMAL_TEXT"], description: "Paragraph style (default: NORMAL_TEXT)" },
+                  formatting: {
+                    type: "array",
+                    description: "Optional text formatting within this section",
+                    items: {
+                      type: "object",
+                      properties: {
+                        text: { type: "string", description: "Text to format (must exist in section)" },
+                        bold: { type: "boolean" },
+                        italic: { type: "boolean" },
+                        underline: { type: "boolean" },
+                        color: { type: "string", description: "Hex color like #FF0000" }
+                      },
+                      required: ["text"]
+                    }
+                  }
+                },
+                required: ["text"]
+              }
+            }
+          },
+          required: ["documentId", "sections"]
         }
       },
       {
@@ -4256,6 +4332,160 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         return {
           content: [{ type: "text", text: `Added tab "${args.title}" (ID: ${newTabId})` }],
+          isError: false
+        };
+      }
+
+      case "renameDocumentTab": {
+        const validation = RenameDocumentTabSchema.safeParse(request.params.arguments);
+        if (!validation.success) {
+          return errorResponse(validation.error.errors[0].message);
+        }
+        const args = validation.data;
+
+        const docs = google.docs({ version: 'v1', auth: authClient });
+
+        await docs.documents.batchUpdate({
+          documentId: args.documentId,
+          requestBody: {
+            requests: [{
+              updateDocumentTabProperties: {
+                tabId: args.tabId,
+                tabProperties: { title: args.newTitle },
+                fields: 'title'
+              }
+            }] as any
+          }
+        });
+
+        return {
+          content: [{ type: "text", text: `Renamed tab ${args.tabId} to "${args.newTitle}"` }],
+          isError: false
+        };
+      }
+
+      case "insertFormattedContent": {
+        const validation = InsertFormattedContentSchema.safeParse(request.params.arguments);
+        if (!validation.success) {
+          return errorResponse(validation.error.errors[0].message);
+        }
+        const args = validation.data;
+
+        const docs = google.docs({ version: 'v1', auth: authClient });
+
+        // Build full text content
+        let fullText = '';
+        const sectionPositions: Array<{
+          startIndex: number;
+          endIndex: number;
+          style: string;
+          formatting?: Array<{ text: string; bold?: boolean; italic?: boolean; underline?: boolean; color?: string }>;
+          fullText: string;
+        }> = [];
+
+        const insertIndex = args.index || 1;
+        let currentIndex = insertIndex;
+
+        for (const section of args.sections) {
+          const sectionText = section.text + '\n';
+          sectionPositions.push({
+            startIndex: currentIndex,
+            endIndex: currentIndex + sectionText.length,
+            style: section.style || 'NORMAL_TEXT',
+            formatting: section.formatting,
+            fullText: section.text
+          });
+          fullText += sectionText;
+          currentIndex += sectionText.length;
+        }
+
+        // Build batchUpdate requests
+        const requests: any[] = [];
+
+        // 1. Insert all text at the specified position
+        const insertLocation: any = { index: insertIndex };
+        if (args.tabId) {
+          insertLocation.tabId = args.tabId;
+        }
+        requests.push({
+          insertText: { location: insertLocation, text: fullText }
+        });
+
+        // 2. Apply paragraph styles to each section
+        for (const section of sectionPositions) {
+          const range: any = { startIndex: section.startIndex, endIndex: section.endIndex };
+          if (args.tabId) {
+            range.tabId = args.tabId;
+          }
+          requests.push({
+            updateParagraphStyle: {
+              range,
+              paragraphStyle: { namedStyleType: section.style },
+              fields: 'namedStyleType'
+            }
+          });
+        }
+
+        // 3. Apply text formatting within sections
+        for (const section of sectionPositions) {
+          if (section.formatting) {
+            for (const fmt of section.formatting) {
+              const textIndex = section.fullText.indexOf(fmt.text);
+              if (textIndex === -1) continue;
+
+              const fmtStartIndex = section.startIndex + textIndex;
+              const fmtEndIndex = fmtStartIndex + fmt.text.length;
+
+              const textStyle: any = {};
+              const fields: string[] = [];
+
+              if (fmt.bold !== undefined) {
+                textStyle.bold = fmt.bold;
+                fields.push('bold');
+              }
+              if (fmt.italic !== undefined) {
+                textStyle.italic = fmt.italic;
+                fields.push('italic');
+              }
+              if (fmt.underline !== undefined) {
+                textStyle.underline = fmt.underline;
+                fields.push('underline');
+              }
+              if (fmt.color) {
+                const hex = fmt.color.replace('#', '');
+                const r = parseInt(hex.substring(0, 2), 16) / 255;
+                const g = parseInt(hex.substring(2, 4), 16) / 255;
+                const b = parseInt(hex.substring(4, 6), 16) / 255;
+                textStyle.foregroundColor = { color: { rgbColor: { red: r, green: g, blue: b } } };
+                fields.push('foregroundColor');
+              }
+
+              if (fields.length > 0) {
+                const range: any = { startIndex: fmtStartIndex, endIndex: fmtEndIndex };
+                if (args.tabId) {
+                  range.tabId = args.tabId;
+                }
+                requests.push({
+                  updateTextStyle: {
+                    range,
+                    textStyle,
+                    fields: fields.join(',')
+                  }
+                });
+              }
+            }
+          }
+        }
+
+        // Execute batchUpdate
+        await docs.documents.batchUpdate({
+          documentId: args.documentId,
+          requestBody: { requests }
+        });
+
+        const tabInfo = args.tabId ? ` in tab ${args.tabId}` : '';
+        return {
+          content: [{ type: "text", text: `Inserted ${sectionPositions.length} formatted sections at index ${insertIndex}${tabInfo}` }],
           isError: false
         };
       }

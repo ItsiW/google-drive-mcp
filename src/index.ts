@@ -1029,7 +1029,8 @@ const DeleteRangeSchema = z.object({
 const ReadGoogleDocSchema = z.object({
   documentId: z.string().min(1, "Document ID is required"),
   format: z.enum(['text', 'json', 'markdown']).optional().default('text'),
-  maxLength: z.number().int().min(1).optional()
+  maxLength: z.number().int().min(1).optional(),
+  tabId: z.string().optional() // Read content from a specific tab
 });
 
 const ListDocumentTabsSchema = z.object({
@@ -1061,7 +1062,8 @@ const InsertFormattedContentSchema = z.object({
       bold: z.boolean().optional(),
       italic: z.boolean().optional(),
       underline: z.boolean().optional(),
-      color: z.string().optional() // hex color like "#FF0000"
+      color: z.string().optional(), // hex color like "#FF0000"
+      linkUrl: z.string().optional() // URL for hyperlink
     })).optional()
   }))
 });
@@ -1571,13 +1573,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "readGoogleDoc",
-        description: "Read content of a Google Doc with format options",
+        description: "Read content of a Google Doc with format options. Supports reading specific tabs.",
         inputSchema: {
           type: "object",
           properties: {
             documentId: { type: "string" },
             format: { type: "string", enum: ["text", "json", "markdown"], description: "Output format (default: text)" },
-            maxLength: { type: "number", description: "Maximum characters to return" }
+            maxLength: { type: "number", description: "Maximum characters to return" },
+            tabId: { type: "string", description: "Tab ID to read from (use listDocumentTabs to find IDs). Defaults to first tab." }
           },
           required: ["documentId"]
         }
@@ -1647,7 +1650,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         bold: { type: "boolean" },
                         italic: { type: "boolean" },
                         underline: { type: "boolean" },
-                        color: { type: "string", description: "Hex color like #FF0000" }
+                        color: { type: "string", description: "Hex color like #FF0000" },
+                        linkUrl: { type: "string", description: "URL for hyperlink" }
                       },
                       required: ["text"]
                     }
@@ -3800,29 +3804,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const args = validation.data;
 
         const docs = google.docs({ version: 'v1', auth: authClient });
+        // Use includeTabsContent to access specific tabs
         const docResponse = await docs.documents.get({
-          documentId: args.documentId
+          documentId: args.documentId,
+          includeTabsContent: true
         });
 
         const doc = docResponse.data;
         const format = args.format || 'text';
 
-        if (format === 'json') {
-          let result = JSON.stringify(doc, null, 2);
-          if (args.maxLength && result.length > args.maxLength) {
-            result = result.substring(0, args.maxLength) + '\n... (truncated)';
-          }
-          return {
-            content: [{ type: "text", text: result }],
-            isError: false
-          };
-        }
-
-        // Extract plain text from document
-        let text = '';
-        const body = doc.body;
-        if (body?.content) {
-          for (const element of body.content) {
+        // Helper to extract text from content array
+        const extractTextFromContent = (content: any[]): string => {
+          let text = '';
+          for (const element of content) {
             if (element.paragraph?.elements) {
               for (const elem of element.paragraph.elements) {
                 if (elem.textRun?.content) {
@@ -3848,11 +3842,65 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               }
             }
           }
+          return text;
+        };
+
+        // Helper to find tab by ID (recursive for nested tabs)
+        const findTab = (tabs: any[], targetId: string): any => {
+          for (const tab of tabs) {
+            if (tab.tabProperties?.tabId === targetId) {
+              return tab;
+            }
+            if (tab.childTabs) {
+              const found = findTab(tab.childTabs, targetId);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+
+        // Get content from specified tab or default
+        let body: any;
+        let tabTitle = '';
+        const tabs = (doc as any).tabs;
+
+        if (args.tabId && tabs && tabs.length > 0) {
+          const tab = findTab(tabs, args.tabId);
+          if (!tab) {
+            return errorResponse(`Tab with ID "${args.tabId}" not found`);
+          }
+          body = tab.documentTab?.body;
+          tabTitle = tab.tabProperties?.title || '';
+        } else if (tabs && tabs.length > 0) {
+          // Default to first tab
+          body = tabs[0].documentTab?.body;
+          tabTitle = tabs[0].tabProperties?.title || '';
+        } else {
+          // Fallback to legacy body
+          body = doc.body;
+        }
+
+        if (format === 'json') {
+          let result = JSON.stringify(doc, null, 2);
+          if (args.maxLength && result.length > args.maxLength) {
+            result = result.substring(0, args.maxLength) + '\n... (truncated)';
+          }
+          return {
+            content: [{ type: "text", text: result }],
+            isError: false
+          };
+        }
+
+        // Extract plain text from document
+        let text = '';
+        if (body?.content) {
+          text = extractTextFromContent(body.content);
         }
 
         if (format === 'markdown') {
           // Basic markdown conversion - could be enhanced
-          text = `# ${doc.title}\n\n${text}`;
+          const title = tabTitle ? `${doc.title} - ${tabTitle}` : doc.title;
+          text = `# ${title}\n\n${text}`;
         }
 
         if (args.maxLength && text.length > args.maxLength) {
@@ -4032,7 +4080,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           startIndex: number;
           endIndex: number;
           style: string;
-          formatting?: Array<{ text: string; bold?: boolean; italic?: boolean; underline?: boolean; color?: string }>;
+          formatting?: Array<{ text: string; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; linkUrl?: string }>;
           fullText: string;
         }> = [];
 
@@ -4111,6 +4159,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 const b = parseInt(hex.substring(4, 6), 16) / 255;
                 textStyle.foregroundColor = { color: { rgbColor: { red: r, green: g, blue: b } } };
                 fields.push('foregroundColor');
+              }
+              if (fmt.linkUrl) {
+                textStyle.link = { url: fmt.linkUrl };
+                fields.push('link');
               }
 
               if (fields.length > 0) {

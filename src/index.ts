@@ -858,7 +858,8 @@ const CreateGoogleSheetSchema = z.object({
 const UpdateGoogleSheetSchema = z.object({
   spreadsheetId: z.string().min(1, "Spreadsheet ID is required"),
   range: z.string().min(1, "Range is required"),
-  data: z.array(z.array(z.string()))
+  data: z.array(z.array(z.string())),
+  valueInputOption: z.enum(["RAW", "USER_ENTERED"]).optional().default("USER_ENTERED")
 });
 
 const GetGoogleSheetContentSchema = z.object({
@@ -2020,6 +2021,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             data: {
               type: "array",
               items: { type: "array", items: { type: "string" } }
+            },
+            valueInputOption: {
+              type: "string",
+              enum: ["RAW", "USER_ENTERED"],
+              default: "USER_ENTERED",
+              description: "How input data should be interpreted (RAW or USER_ENTERED). Defaults to USER_ENTERED."
             }
           },
           required: ["spreadsheetId", "range", "data"]
@@ -2900,7 +2907,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         await sheets.spreadsheets.values.update({
           spreadsheetId: args.spreadsheetId,
           range: args.range,
-          valueInputOption: 'RAW',
+          valueInputOption: args.valueInputOption,
           requestBody: { values: args.data }
         });
 
